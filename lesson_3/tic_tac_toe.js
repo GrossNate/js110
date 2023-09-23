@@ -3,38 +3,15 @@ const readline = require("readline-sync");
 const EMPTY_SQUARE = " ";
 const USER_MARKER = "X";
 const COMPUTER_MARKER = "O";
-let dimension = Number.parseInt(
-  readline.question(
-    "Input width of board (default is 3): ",
-    {
-      defaultInput: 3,
-      limit: /^[3-9]$/,
-      limitMessage: "Please pick a number 3 through 9.",
-    },
-  ),
-);
-const X_DIMENSION = dimension; // Pick a number <= 26 or we run out of letters.
-const Y_DIMENSION = dimension; // Pick a number <= 9 or the board won't render properly.
-let winningSquareCountLimit = new RegExp(`^[3-${dimension}$]`);
-let winningSquareCountLimitMessage = (dimension === 3)
-  ? "3 is the only valid choice"
-  : `Must pick a number 3 through ${dimension}`;
-const NUM_SQUARES_REQUIRED_TO_WIN = Number.parseInt(
-  readline.question(
-    "Input number of squares needed to win (default is 3): ",
-    {
-      defaultInput: 3,
-      limit: winningSquareCountLimit,
-      limitMessage: winningSquareCountLimitMessage,
-    },
-  ),
-);
-const WINNING_ARRAYS = generateWinningCombinations(
-  X_DIMENSION,
-  Y_DIMENSION,
-  NUM_SQUARES_REQUIRED_TO_WIN,
-);
 const MAX_POSITIONS_TO_EVALUATE = 10000000000; // Works on MacBook Air M2
+const CHAR_CODE_FOR_A = 65;
+const CHAR_CODE_FOR_LOWERCASE_A = 97;
+let xDimension;
+let yDimension;
+let numSquaresRequiredToWin;
+let winningArrays;
+let limitRegExp;
+let limitMessageText;
 
 // This examines each square on the board, looking for winning combinations that
 // have it as an endpoint.
@@ -45,16 +22,16 @@ function generateWinningCombinations(xDim, yDim, squaresNeeded) {
       // Checks for a winning combination going down.
       if (yDim - 1 - y >= squaresNeeded - 1) {
         let newCombo = [];
-        for (let i = 0; i < squaresNeeded; i += 1) {
-          newCombo.push([x, y + i]);
+        for (let count = 0; count < squaresNeeded; count += 1) {
+          newCombo.push([x, y + count]);
         }
         winningArrays.push(newCombo);
       }
       // Checks for a winnning combination going across.
       if (xDim - 1 - x >= squaresNeeded - 1) {
         let newCombo = [];
-        for (let i = 0; i < squaresNeeded; i += 1) {
-          newCombo.push([x + i, y]);
+        for (let count = 0; count < squaresNeeded; count += 1) {
+          newCombo.push([x + count, y]);
         }
         winningArrays.push(newCombo);
       }
@@ -64,8 +41,8 @@ function generateWinningCombinations(xDim, yDim, squaresNeeded) {
         (yDim - 1 - y >= squaresNeeded - 1)
       ) {
         let newCombo = [];
-        for (let i = 0; i < squaresNeeded; i += 1) {
-          newCombo.push([x + i, y + i]);
+        for (let count = 0; count < squaresNeeded; count += 1) {
+          newCombo.push([x + count, y + count]);
         }
         winningArrays.push(newCombo);
       }
@@ -75,8 +52,8 @@ function generateWinningCombinations(xDim, yDim, squaresNeeded) {
         (yDim - 1 - y >= squaresNeeded - 1)
       ) {
         let newCombo = [];
-        for (let i = 0; i < squaresNeeded; i += 1) {
-          newCombo.push([x - i, y + i]);
+        for (let count = 0; count < squaresNeeded; count += 1) {
+          newCombo.push([x - count, y + count]);
         }
         winningArrays.push(newCombo);
       }
@@ -91,7 +68,7 @@ function generateWinningCombinations(xDim, yDim, squaresNeeded) {
 const board = {
   boardStateArray: [],
   // This is because we haven't learned how to create classes and such yet, I'm
-  // using the stuff that we actually have learned. Hence the duplicate function.
+  // using stuff that we actually have learned. Hence the duplicate function.
   duplicate: function () {
     let newBoard = Object.assign({}, this);
     newBoard.boardStateArray = newBoard.boardStateArray.map((subArr) =>
@@ -100,11 +77,11 @@ const board = {
     return newBoard;
   },
   initializeBoardState: function () {
-    for (let y = 0; y <= (Y_DIMENSION - 1); y += 1) {
+    for (let y = 0; y <= (yDimension - 1); y += 1) {
       if (this.boardStateArray[y] === undefined) {
         this.boardStateArray.push([]);
       }
-      for (let x = 0; x <= (X_DIMENSION - 1); x += 1) {
+      for (let x = 0; x <= (xDimension - 1); x += 1) {
         this.boardStateArray[y][x] = EMPTY_SQUARE;
       }
     }
@@ -132,15 +109,19 @@ const board = {
       }
     }
   },
+  // This is a little complicated because we're enabling it to display an
+  // arbitrarily large gameboard (though it's really limited to 9 tall and 26)
+  // wide because otherwise we run into spacing issues with the row numbers and
+  // we run out of letters in the English alphabet.
   generateDisplay: function () {
-    let dividerRow = ` ─${Array(X_DIMENSION).fill("─").join("─┼─")}─\n`;
-    let boardRows = Array(Y_DIMENSION).fill().map((_, index) =>
+    let dividerRow = ` ─${Array(xDimension).fill("─").join("─┼─")}─\n`;
+    let boardRows = Array(yDimension).fill().map((_, index) =>
       `${index + 1} ${this.boardStateArray[index].join(" │ ")}\n`
     );
     return "\n" +
       `  ${
-        Array(X_DIMENSION).fill().map((_, index) =>
-          String.fromCharCode(index + 65)
+        Array(xDimension).fill().map((_, index) =>
+          String.fromCharCode(index + CHAR_CODE_FOR_A)
         ).join("   ")
       }\n` +
       boardRows.join(dividerRow) +
@@ -186,15 +167,15 @@ function isGameOver(board) {
 }
 
 function determineWinner(board) {
-  for (let combo = 0; combo < WINNING_ARRAYS.length; combo += 1) {
+  for (let combo = 0; combo < winningArrays.length; combo += 1) {
     if (
-      WINNING_ARRAYS[combo].every((move) =>
+      winningArrays[combo].every((move) =>
         board.whoseSquare(move) === USER_MARKER
       )
     ) {
       return "user";
     } else if (
-      WINNING_ARRAYS[combo].every((move) =>
+      winningArrays[combo].every((move) =>
         board.whoseSquare(move) === COMPUTER_MARKER
       )
     ) {
@@ -205,21 +186,13 @@ function determineWinner(board) {
 }
 
 function moveStringToXYArr(moveString) {
-  let x = moveString[0].charCodeAt() - 65;
+  let x = moveString[0].charCodeAt() - CHAR_CODE_FOR_A;
   let y = Number(moveString[1]) - 1;
   return [x, y];
 }
 
-function determineMovePointValue(
-  move,
-  board,
-  player,
-  maxDepth = 12,
-  depth = 0,
-) {
-  // Since we'll need to mutate the board to keep track of things, we create a
-  // copy here as simply as possible.
-  board = board.duplicate();
+function determineMovePointValue(move, board, player, maxDepth, depth = 0) {
+  board = board.duplicate(); // Needed to avoid mutating in recursion.
   board.registerMove(move, player);
   if (determineWinner(board) === "user") {
     return -20 + depth;
@@ -227,20 +200,18 @@ function determineMovePointValue(
     return 20 - depth;
   } else if (board.isFull() || depth > maxDepth) {
     return 0;
+  } else if (player === "user") {
+    return Math.max(
+      ...(board.findEmptySquares().map((move) =>
+        determineMovePointValue(move, board, "computer", maxDepth, depth + 1)
+      )),
+    );
   } else {
-    if (player === "user") {
-      return Math.max(
-        ...(board.findEmptySquares().map((move) =>
-          determineMovePointValue(move, board, "computer", maxDepth, depth + 1)
-        )),
-      );
-    } else {
-      return Math.min(
-        ...(board.findEmptySquares().map((move) =>
-          determineMovePointValue(move, board, "user", maxDepth, depth + 1)
-        )),
-      );
-    }
+    return Math.min(
+      ...(board.findEmptySquares().map((move) =>
+        determineMovePointValue(move, board, "user", maxDepth, depth + 1)
+      )),
+    );
   }
 }
 
@@ -249,7 +220,7 @@ function findMaxDepthPossible(emptySquares) {
   for (let depth = 0; depth <= emptySquares; depth += 1) {
     if (
       partialFactorial(emptySquares, emptySquares - depth) *
-          (WINNING_ARRAYS.length ** depth) <= MAX_POSITIONS_TO_EVALUATE
+          (winningArrays.length ** depth) <= MAX_POSITIONS_TO_EVALUATE
     ) {
       maxDepth = depth;
     } else {
@@ -289,7 +260,7 @@ function computerMove(board) {
   let maxDepth = findMaxDepthPossible(emptySquares.length);
   console.log(`Looking up to ${maxDepth} moves ahead.`);
   console.log(
-    `There are ${WINNING_ARRAYS.length} possible winning combinations.`,
+    `There are ${winningArrays.length} possible winning combinations.`,
   );
   console.log(
     `So, I'm evaluating ${
@@ -306,8 +277,8 @@ function computerMove(board) {
   // All else being equal, choose a move closest to the center of the board.
   let simpleMovePoints = bestMoves.map((move) => {
     let centralityPoints = Math.sqrt(
-      ((X_DIMENSION - 1) / 2 - Math.abs((X_DIMENSION - 1) / 2 - move[0])) +
-        ((Y_DIMENSION - 1) / 2 - Math.abs((Y_DIMENSION - 1) / 2 - move[1])),
+      (((xDimension - 1) / 2) - (Math.abs((xDimension - 1) / 2) - move[0])) +
+        (((yDimension - 1) / 2) - (Math.abs((yDimension - 1) / 2) - move[1])),
     );
     return centralityPoints;
   });
@@ -315,24 +286,6 @@ function computerMove(board) {
 }
 
 function solicitMove() {
-  let limitRegExp = new RegExp(
-    `^[` +
-      `a-${String.fromCharCode(X_DIMENSION + 96)}` +
-      `A-${String.fromCharCode(X_DIMENSION + 64)}]` +
-      `[1-${Y_DIMENSION}]$`,
-  );
-  let limitMessageText =
-    "Invalid move. Your move should have two characters - the letter of the column " +
-    `${
-      joinOr(
-        Array(X_DIMENSION).fill().map((_, index) =>
-          String.fromCharCode(index + 65)
-        ),
-      )
-    } ` +
-    "followed by the number of the row " +
-    `${joinOr(Array(Y_DIMENSION).fill().map((_, index) => index + 1))}. ` +
-    'For example, the top left square is "A1".\n';
   let moveString = readline.question(
     "Please enter the column and row of your move: ",
     {
@@ -347,18 +300,21 @@ function displayGameOver(board) {
   console.clear();
   console.log(board.generateDisplay());
   console.log(
-    !!determineWinner(board)
+    determineWinner(board)
       ? `The winner is the ${determineWinner(board)}!`
       : "It's a tie!",
   );
 }
 
+function displayGameState() {
+  console.clear();
+  console.log(`You are ${USER_MARKER}. Computer is ${COMPUTER_MARKER}.`);
+  console.log(board.generateDisplay());
+}
+
 function playGame() {
-  board.initializeBoardState();
   while (true) {
-    console.clear();
-    console.log(`You are ${USER_MARKER}. Computer is ${COMPUTER_MARKER}.`);
-    console.log(board.generateDisplay());
+    displayGameState();
     let userMove = solicitMove();
     while (!board.registerMove(userMove, "user")) {
       console.log(
@@ -367,9 +323,7 @@ function playGame() {
       userMove = solicitMove();
     }
     if (isGameOver(board)) break;
-    console.clear();
-    console.log(`You are ${USER_MARKER}. Computer is ${COMPUTER_MARKER}.`);
-    console.log(board.generateDisplay());
+    displayGameState();
     console.log("Computer is thinking . . .");
     board.registerMove(computerMove(board), "computer");
     if (isGameOver(board)) break;
@@ -387,7 +341,69 @@ function joinOr(arr, delimeter = ",", andOr = "or") {
   }
 }
 
+function solicitGameParameters() {
+  console.clear();
+  let dimension = Number.parseInt(
+    readline.question(
+      "Input width of board (default is 3): ",
+      {
+        defaultInput: 3,
+        limit: /^[3-9]$/,
+        limitMessage: "Please pick a number 3 through 9.",
+      },
+    ),
+    10,
+  );
+  xDimension = dimension; // Pick a number <= 26 or we run out of letters.
+  yDimension = dimension; // Pick a number <= 9 or the board won't render properly.
+  let winningSquareCountLimit = new RegExp(`^[3-${dimension}$]`);
+  let winningSquareCountLimitMessage = (dimension === 3)
+    ? "3 is the only valid choice"
+    : `Must pick a number 3 through ${dimension}`;
+  numSquaresRequiredToWin = Number.parseInt(
+    readline.question(
+      "Input number of squares needed to win (default is 3): ",
+      {
+        defaultInput: 3,
+        limit: winningSquareCountLimit,
+        limitMessage: winningSquareCountLimitMessage,
+      },
+    ),
+    10,
+  );
+}
+
+function setUpDimensionalPseudoConstants() {
+  winningArrays = generateWinningCombinations(
+    xDimension,
+    yDimension,
+    numSquaresRequiredToWin,
+  );
+
+  limitRegExp = new RegExp(
+    `^[` +
+      `a-${String.fromCharCode(xDimension + (CHAR_CODE_FOR_LOWERCASE_A - 1))}` +
+      `A-${String.fromCharCode(xDimension + (CHAR_CODE_FOR_A - 1))}]` +
+      `[1-${yDimension}]$`,
+  );
+  limitMessageText =
+    "Invalid move. Your move should have two characters - the letter of the column " +
+    `${
+      joinOr(
+        Array(xDimension).fill().map((_, index) =>
+          String.fromCharCode(index + CHAR_CODE_FOR_A)
+        ),
+      )
+    } ` +
+    "followed by the number of the row " +
+    `${joinOr(Array(yDimension).fill().map((_, index) => index + 1))}. ` +
+    'For example, the top left square is "A1".\n';
+}
+
 while (true) {
+  solicitGameParameters();
+  setUpDimensionalPseudoConstants();
+  board.initializeBoardState();
   playGame();
   if (!readline.keyInYN("Would you like to play again? ")) break;
 }
