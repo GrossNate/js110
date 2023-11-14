@@ -207,11 +207,12 @@ function getNameDisplayString(dealer, player, showDealerHand, leftPadString) {
   let nameLine = "";
   if (showDealerHand) {
     nameLine += dealer.name;
-    nameLine += " ".repeat(leftPadString.length - dealer.name.length);
+    nameLine += " ".repeat(leftPadString.length - nameLine.length);
   } else {
     nameLine += leftPadString;
   }
   nameLine += player.name;
+  nameLine += ` (${player.totalValue > TARGET ? "bust" : player.totalValue})`;
   return nameLine;
 }
 
