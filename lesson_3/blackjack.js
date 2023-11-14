@@ -98,7 +98,8 @@ class Hand {
         return Math.max(
           ...(cardArr[0].getNumericalValues().map((value) =>
             sumValues(value + sum, cardArr.slice(1))
-          )));
+          )),
+        );
       }
     };
     return (sumValues(0, this.cards) === 0)
@@ -300,7 +301,7 @@ function determineWinner(player1, player2) {
  * Everything a player does in their turn.
  * @param {Hand} player The player whose turn it is.
  * @param {Hand[]} players All players.
- * @param {Deck}
+ * @param {Deck} deck
  */
 function doPlayerTurn(player, players, deck) {
   while (player.totalValue < TARGET) {
@@ -310,23 +311,47 @@ function doPlayerTurn(player, players, deck) {
       `${player.name}, would you like to hit (h) or stand (s)? `,
       { limit: ["h", "s"], limitMessage: 'Please enter "h" or "s".' },
     );
-    if (playerAction === "h") {
+    if (playerAction.toLowerCase() === "h") {
       hit(deck, player);
     } else {
       break;
     }
   }
 }
+function displayWelcomeScreen() {
+  console.log(
+    "Let's play . . . \n\n" +
+      " _     _            _    _            _    \n" +
+      "| |   | |          | |  (_)          | |   \n" +
+      "| |__ | | __ _  ___| | ___  __ _  ___| | __\n" +
+      "| '_ \\| |/ _` |/ __| |/ / |/ _` |/ __| |/ /\n" +
+      "| |_) | | (_| | (__|   <| | (_| | (__|   < \n" +
+      "|_.__/|_|\\__,_|\\___|_|\\_\\ |\\__,_|\\___|_|\\_\\\n" +
+      "                       _/ |                \n" +
+      "                      |__/\n\n" +
+      "This is the most basic version of the casino-style game. Closest to " +
+      `${TARGET} without going over wins. Each player plays against the ` +
+      `dealer. If the dealer gets a natural blackjack (${TARGET} on the ` +
+      "deal) then the game is over immediately and no players have a chance " +
+      "to take any cards. If you need more help than that then Google is " +
+      "your friend or you could just play a round or two. I hope you have fun.\n",
+  );
+}
 
 console.clear();
-
+displayWelcomeScreen();
+readline.question("Press enter key to continue.", {
+  hideEchoBack: true,
+  mask: "",
+});
+console.clear();
 // Add all the players and dealer to the game.
 let players = [];
 let dealer = new Hand("Dealer", true);
 
 while (players.length < MAX_PLAYERS) {
   let newPlayerName = readline.question(
-    "New player name (leave blank to finish): ",
+    `New player name${(players.length > 0) ? " (or enter to continue)" : ""}: `,
   );
   if (newPlayerName === "") {
     if (players.length === 0) {
@@ -346,7 +371,7 @@ console.log();
 let deck = new Deck();
 let deckLimitRegExp = new RegExp(`^[1-${MAX_DECKS}]{1}$`);
 let numberOfDecks = readline.question(
-  "How many decks do you want to play with? ",
+  `How many decks do you want to play with? (1 - ${MAX_DECKS}): `,
   {
     limitMessage: `Please enter a number from 1 to ${MAX_DECKS}, inclusive.`,
     limit: deckLimitRegExp,
@@ -387,7 +412,7 @@ while (true) {
   dealer.turnCardsFaceUp();
   console.clear();
   displayGameState(players, true);
-  let playAgain = readline.keyInYN("Would you like to play again? ");
+  let playAgain = readline.keyInYNStrict("Would you like to play again? ");
   if (playAgain) {
     putAllCardsBackInDeck(deck, players);
   } else {
